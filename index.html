@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minesweeper Game</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --cell-size: clamp(30px, 5vw, 40px);
+            --cell-border: 2px solid #999;
+            --cell-bg: #fff;
+            --cell-hover: #e0e0e0;
+            --revealed-bg: #ddd;
+            --mine-bg: #ff4444;
+            --flagged-bg: #ffeb3b;
+            --container-bg: #f0f0f0;
+            --text-color: #333;
+            --menu-bg: #1e2433;
+            --menu-text: #ffffff;
+            --body-bg: #f5f5f5;
+        }
+
+        @media (max-width: 768px) {
+            :root {
+                --cell-size: clamp(25px, 7vw, 35px);
+            }
+        }
+
+        .dark-mode {
+            --cell-bg: #2d3748;
+            --cell-hover: #4a5568;
+            --revealed-bg: #4a5568;
+            --mine-bg: #e53e3e;
+            --flagged-bg: #d69e2e;
+            --container-bg: #1a202c;
+            --text-color: #e2e8f0;
+            --menu-bg: #1e2433;
+            --menu-text: #ffffff;
+            --body-bg: #121212;
+        }
+
+        .light-mode {
+            --menu-bg: #ffffff;
+            --menu-text: #1a202c;
+        }
+
+        body {
+            background-color: var(--body-bg);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .cell {
+            width: var(--cell-size);
+            height: var(--cell-size);
+            border: var(--cell-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.2rem;
+            transition: all 0.1s;
+            background-color: var(--cell-bg);
+            color: var(--text-color);
+            box-shadow: inset -2px -2px 3px rgba(0, 0, 0, 0.2),
+                        inset 2px 2px 3px rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .cell:hover {
+            background-color: var(--cell-hover);
+        }
+
+        .cell:active {
+            transform: translateY(1px);
+            box-shadow: inset 2px 2px 3px rgba(0, 0, 0, 0.2),
+                        inset -2px -2px 3px rgba(255, 255, 255, 0.1);
+        }
+
+        .revealed {
+            background-color: var(--revealed-bg);
+            transform: translateY(0);
+            box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.2);
+        }
+
+        .revealed:hover {
+            background-color: var(--revealed-bg);
+        }
+
+        .revealed:active {
+            transform: translateY(0);
+        }
+
+        .mine {
+            background-color: var(--mine-bg);
+            transform: translateY(0);
+            box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.2);
+        }
+
+        .flagged {
+            background-color: var(--flagged-bg);
+        }
+
+        .dark-mode .cell {
+            box-shadow: inset -2px -2px 3px rgba(255, 255, 255, 0.1),
+                        inset 2px 2px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        .dark-mode .cell:active {
+            box-shadow: inset 2px 2px 3px rgba(0, 0, 0, 0.3),
+                        inset -2px -2px 3px rgba(255, 255, 255, 0.05);
+        }
+
+        .dark-mode .revealed {
+            box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.3);
+        }
+
+        .game-container {
+            background-color: var(--container-bg);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: fit-content;
+            margin: 0 auto;
+            width: min(95vw, 100%);
+            overflow-x: auto;
+        }
+
+        .game-summary {
+            background-color: var(--cell-bg);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+
+        .menu-container {
+            background-color: var(--menu-bg);
+            padding: 2rem 2rem;
+            border-radius: 2.5rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            width: 450px;
+            height: 600px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            color: var(--menu-text);
+        }
+
+        @media (max-width: 768px) {
+            .menu-container {
+                width: min(450px, 95%);
+                height: min(600px, 90vh);
+                padding: 2rem 1.5rem;
+            }
+
+            .game-title {
+                font-size: 2rem;
+            }
+
+            .mode-button {
+                padding: 0.7rem;
+                font-size: 0.9rem;
+            }
+
+            .game-header {
+                justify-content: center;
+                text-align: center;
+            }
+
+            .game-title-section, .game-controls {
+                justify-content: center;
+                width: 100%;
+            }
+
+            .theme-toggle-game, .theme-toggle-menu {
+                padding: 0.5rem 1rem;
+                font-size: 0.8rem;
+            }
+
+            .profile-display {
+                font-size: 0.8rem;
+            }
+
+            .game-stats {
+                font-size: 0.9rem;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+        }
+
+        .menu-content {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100%;
+            padding: 0.5rem 0;
+            justify-content: flex-start;
+            gap: 1.5rem;
+            margin-top: 5rem;
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            width: 100%;
+            gap: 1rem;
+        }
+
+        .game-title-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .game-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        @media (min-width: 769px) {
+            .menu-buttons {
+                gap: 0.8rem;
+            }
+
+            .mode-button {
+                padding: 0.8rem;
+                font-size: 1rem;
+            }
+
+            .game-title {
+                font-size: 2.5rem;
+            }
+        }
+
+        .menu-header {
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+
+        .menu-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 0.7rem;
+            width: 100%;
+            max-width: 280px;
+            margin: 0 auto;
+        }
+
+        .mode-button {
+            padding: 0.8rem;
+            margin: 0;
+            border-radius: 1.2rem;
+            font-weight: bold;
+            transition: all 0.3s;
+            cursor: pointer;
+            color: white;
+            width: 100%;
+            max-width: 280px;
+            border: none;
+            outline: none;
+            font-size: 1rem;
+        }
+
+        .theme-toggle-menu {
+            padding: 0.6rem 1.2rem;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: var(--menu-text);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 0.9rem;
+            transition: all 0.3s;
+            position: absolute;
+            top: 1.5rem;
+            left: 1.5rem;
+        }
+
+        .game-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            background: linear-gradient(45deg, #4f46e5, #10b981);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -1px;
+            width: 100%;
+            text-align: center;
+            line-height: 1;
+        }
+
+        .game-header h1 {
+            margin: 0;
+        }
+
+        .custom-input {
+            background-color: var(--cell-bg);
+            color: var(--text-color);
+            border: 1px solid var(--cell-hover);
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            margin: 0.5rem;
+            width: 60px;
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            background-color: var(--cell-bg);
+            color: var(--text-color);
+            border: 1px solid var(--cell-hover);
+            z-index: 1000;
+        }
+
+        .game-stats {
+            background-color: var(--cell-bg);
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-around;
+            font-weight: bold;
+            width: 100%;
+            gap: 1.5rem;
+        }
+
+        .light-mode .theme-toggle-menu {
+            background-color: rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(0, 0, 0, 0.2);
+        }
+
+        .theme-toggle-menu:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background-color: var(--cell-bg);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            width: min(400px, 90%);
+            color: var(--text-color);
+            animation: modalPop 0.3s ease-out;
+        }
+
+        @keyframes modalPop {
+            0% {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .modal-title {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            background: linear-gradient(45deg, #4f46e5, #10b981);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .modal-stats {
+            margin: 1.5rem 0;
+            font-size: 1.1rem;
+        }
+
+        .modal-button {
+            padding: 0.8rem 1.5rem;
+            border-radius: 0.5rem;
+            background-color: #4f46e5;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            margin: 0.5rem;
+        }
+
+        .modal-button:hover {
+            background-color: #4338ca;
+        }
+
+        .player-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .player-input-container {
+            background-color: var(--menu-bg);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            width: min(400px, 90%);
+            color: var(--menu-text);
+        }
+
+        .player-input {
+            width: 100%;
+            padding: 0.75rem;
+            margin: 1rem 0;
+            border-radius: 0.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background-color: rgba(255, 255, 255, 0.1);
+            color: var(--menu-text);
+            font-size: 1rem;
+        }
+
+        .player-list {
+            max-height: 150px;
+            overflow-y: auto;
+            margin: 1rem 0;
+        }
+
+        .player-option {
+            padding: 0.5rem;
+            margin: 0.25rem 0;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .player-option:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .history-container {
+            background-color: var(--menu-bg);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            width: min(500px, 90%);
+            color: var(--menu-text);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .history-entry {
+            padding: 1rem;
+            margin: 0.5rem 0;
+            border-radius: 0.5rem;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .history-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .profile-display {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            padding: 0.6rem 1rem;
+            border-radius: 0.75rem;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: var(--menu-text);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            z-index: 100;
+            cursor: pointer;
+        }
+
+        .profile-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 0.5rem;
+            background-color: var(--menu-bg);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 0.75rem;
+            padding: 0.5rem;
+            display: none;
+            z-index: 101;
+            min-width: 150px;
+        }
+
+        .profile-display:hover .profile-dropdown {
+            display: block;
+        }
+
+        .profile-dropdown-item {
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            border-radius: 0.5rem;
+            transition: all 0.2s;
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        .profile-dropdown-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .profile-icon {
+            width: 24px;
+            height: 24px;
+            background-color: var(--menu-text);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            color: var(--menu-bg);
+        }
+
+        .theme-toggle-game {
+            position: fixed;
+            top: 1.5rem;
+            right: 1.5rem;
+            padding: 0.6rem 1.2rem;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            background-color: var(--menu-bg);
+            color: var(--menu-text);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 0.9rem;
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+
+        .theme-toggle-game:hover {
+            background-color: var(--cell-hover);
+        }
+
+        .dark-mode .theme-toggle-game {
+            background-color: #1e2433;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: none;
+        }
+
+        .light-mode .theme-toggle-game {
+            background-color: #ffffff;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            color: #1a202c;
+        }
+
+        .records-container {
+            background-color: var(--menu-bg);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            width: min(500px, 90%);
+            color: var(--menu-text);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .record-entry {
+            padding: 1rem;
+            margin: 0.5rem 0;
+            border-radius: 0.5rem;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-left: 4px solid;
+        }
+
+        .record-entry.easy {
+            border-color: #10B981;
+        }
+
+        .record-entry.medium {
+            border-color: #FBBF24;
+        }
+
+        .record-entry.hard {
+            border-color: #EF4444;
+        }
+
+        .record-entry.custom {
+            border-color: #8B5CF6;
+        }
+
+        .medal {
+            font-size: 1.5rem;
+            margin-right: 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .menu-content {
+                margin-top: 4rem;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center">
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const GAME_MODES = {
+            EASY: { size: 8, mines: 10 },
+            MEDIUM: { size: 12, mines: 25 },
+            HARD: { size: 16, mines: 40 },
+            CUSTOM: { size: 10, mines: 20 }
+        };
+
+        function CustomMode({ onStartGame }) {
+            const [size, setSize] = useState(10);
+            const [mines, setMines] = useState(20);
+
+            const handleStart = () => {
+                if (size < 5) {
+                    alert('Board size must be at least 5x5');
+                    return;
+                }
+                if (size > 30) {
+                    alert('Board size cannot exceed 30x30');
+                    return;
+                }
+                if (mines >= size * size) {
+                    alert('Number of mines must be less than total cells');
+                    return;
+                }
+                onStartGame({ size, mines });
+            };
+
+            return (
+                <div className="menu-container">
+                    <h1 className="game-title">Custom Mode</h1>
+                    <div className="flex flex-col items-center gap-4">
+                        <div>
+                            <label className="block mb-2">Board Size (5-30):</label>
+                            <input
+                                type="number"
+                                value={size}
+                                onChange={(e) => setSize(parseInt(e.target.value) || 10)}
+                                min="5"
+                                max="30"
+                                className="custom-input"
+                            />
+                        </div>
+                        <div>
+                            <label className="block mb-2">Number of Mines:</label>
+                            <input
+                                type="number"
+                                value={mines}
+                                onChange={(e) => setMines(parseInt(e.target.value) || 20)}
+                                min="1"
+                                max={size * size - 1}
+                                className="custom-input"
+                            />
+                        </div>
+                        <div className="menu-buttons">
+                            <button
+                                onClick={handleStart}
+                                className="mode-button bg-purple-500 hover:bg-purple-600"
+                            >
+                                Start Game
+                            </button>
+                            <button
+                                onClick={() => onStartGame(null)}
+                                className="mode-button bg-gray-500 hover:bg-gray-600"
+                            >
+                                Back to Menu
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function PlayerModal({ onSelectPlayer }) {
+            const [newPlayer, setNewPlayer] = useState('');
+            const [players, setPlayers] = useState([]);
+
+            useEffect(() => {
+                const savedPlayers = JSON.parse(localStorage.getItem('minesweeperPlayers') || '[]');
+                setPlayers(savedPlayers);
+            }, []);
+
+            const handleAddPlayer = () => {
+                if (newPlayer.trim()) {
+                    const updatedPlayers = [...new Set([...players, newPlayer.trim()])];
+                    localStorage.setItem('minesweeperPlayers', JSON.stringify(updatedPlayers));
+                    onSelectPlayer(newPlayer.trim());
+                }
+            };
+
+            return (
+                <div className="player-modal">
+                    <div className="player-input-container">
+                        <h2 className="modal-title">Enter Player Name</h2>
+                        <input
+                            type="text"
+                            className="player-input"
+                            value={newPlayer}
+                            onChange={(e) => setNewPlayer(e.target.value)}
+                            placeholder="Enter your name"
+                            onKeyPress={(e) => e.key === 'Enter' && handleAddPlayer()}
+                        />
+                        <button className="modal-button" onClick={handleAddPlayer}>
+                            Start Playing
+                        </button>
+                        {players.length > 0 && (
+                            <>
+                                <h3 className="text-lg mt-4 mb-2">Previous Players:</h3>
+                                <div className="player-list">
+                                    {players.map((player, index) => (
+                                        <div
+                                            key={index}
+                                            className="player-option"
+                                            onClick={() => onSelectPlayer(player)}
+                                        >
+                                            {player}
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        function HistoryModal({ onClose, playerName }) {
+            const [history, setHistory] = useState([]);
+
+            useEffect(() => {
+                const savedHistory = JSON.parse(localStorage.getItem('minesweeperHistory') || '[]');
+                // Filter history for current player, limit to 10 games
+                const playerHistory = savedHistory
+                    .filter(game => game.playerName === playerName)
+                    .slice(0, 10);
+                setHistory(playerHistory);
+            }, [playerName]);
+
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="history-container" onClick={e => e.stopPropagation()}>
+                        <h2 className="history-title">Last 10 Games - {playerName}</h2>
+                        {history.length === 0 ? (
+                            <p className="text-center">No games played yet</p>
+                        ) : (
+                            history.map((game, index) => (
+                                <div key={index} className="history-entry">
+                                    <p><strong>Mode:</strong> {game.mode}</p>
+                                    <p><strong>Result:</strong> {game.won ? '🏆 Won' : '💣 Lost'}</p>
+                                    <p><strong>Time:</strong> {game.duration}</p>
+                                    <p><strong>Date:</strong> {new Date(game.date).toLocaleString()}</p>
+                                </div>
+                            ))
+                        )}
+                        <button className="modal-button mt-4" onClick={onClose}>
+                            Close
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        function RecordsModal({ onClose, playerName }) {
+            const [records, setRecords] = useState({
+                EASY: [],
+                MEDIUM: [],
+                HARD: [],
+                CUSTOM: []
+            });
+
+            useEffect(() => {
+                const savedHistory = JSON.parse(localStorage.getItem('minesweeperHistory') || '[]');
+                // Filter for current player's games only
+                const playerGames = savedHistory.filter(game => game.playerName === playerName && game.won);
+                
+                // Group by mode and sort by duration
+                const groupedGames = playerGames.reduce((acc, game) => {
+                    const mode = game.mode.toUpperCase();
+                    if (!acc[mode]) acc[mode] = [];
+                    acc[mode].push(game);
+                    acc[mode].sort((a, b) => a.duration - b.duration);
+                    acc[mode] = acc[mode].slice(0, 3); // Keep top 3
+                    return acc;
+                }, {
+                    EASY: [],
+                    MEDIUM: [],
+                    HARD: [],
+                    CUSTOM: []
+                });
+
+                setRecords(groupedGames);
+            }, [playerName]);
+
+            const getMedal = (index) => {
+                const medals = ['🥇', '🥈', '🥉'];
+                return medals[index] || '';
+            };
+
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="records-container" onClick={e => e.stopPropagation()}>
+                        <h2 className="history-title">Best Records - {playerName}</h2>
+                        {Object.entries(records).map(([mode, games]) => (
+                            <div key={mode}>
+                                <h3 className="text-xl font-bold mt-4 mb-2">{mode}</h3>
+                                {games.length === 0 ? (
+                                    <p className="text-center text-sm opacity-70">No records yet</p>
+                                ) : (
+                                    games.map((game, index) => (
+                                        <div key={index} className={`record-entry ${mode.toLowerCase()}`}>
+                                            <span className="medal">{getMedal(index)}</span>
+                                            <p><strong>Time:</strong> {game.duration}s</p>
+                                            <p><strong>Date:</strong> {new Date(game.date).toLocaleString()}</p>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        ))}
+                        <button className="modal-button mt-4" onClick={onClose}>
+                            Close
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        function ProfileDisplay({ playerName, inGame, onChangeProfile }) {
+            const initial = playerName ? playerName[0].toUpperCase() : '?';
+            
+            return (
+                <div className={`profile-display ${inGame ? 'in-game' : ''}`}>
+                    <div className="profile-icon">
+                        {initial}
+                    </div>
+                    <span>{playerName || 'Guest'}</span>
+                    {!inGame && (
+                        <div className="profile-dropdown">
+                            <div 
+                                className="profile-dropdown-item"
+                                onClick={onChangeProfile}
+                            >
+                                Change Profile
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        function Menu({ onStartGame, playerName, onChangeProfile }) {
+            const [darkMode, setDarkMode] = useState(true);
+            const [showHistory, setShowHistory] = useState(false);
+            const [showRecords, setShowRecords] = useState(false);
+
+            useEffect(() => {
+                document.body.classList.toggle('dark-mode', darkMode);
+                document.body.classList.toggle('light-mode', !darkMode);
+            }, [darkMode]);
+
+            return (
+                <div className="menu-container">
+                    <button
+                        onClick={() => setDarkMode(!darkMode)}
+                        className="theme-toggle-menu"
+                    >
+                        {darkMode ? '☀️ Light' : '🌙 Dark'}
+                    </button>
+                    <ProfileDisplay 
+                        playerName={playerName} 
+                        onChangeProfile={onChangeProfile}
+                    />
+                    <div className="menu-content">
+                        <div className="menu-header">
+                            <h1 className="game-title">Minesweeper</h1>
+                        </div>
+                        <div className="menu-buttons">
+                            <button 
+                                onClick={() => onStartGame(GAME_MODES.EASY)}
+                                className="mode-button bg-green-500 hover:bg-green-600"
+                            >
+                                Easy
+                            </button>
+                            <button 
+                                onClick={() => onStartGame(GAME_MODES.MEDIUM)}
+                                className="mode-button bg-yellow-500 hover:bg-yellow-600"
+                            >
+                                Medium
+                            </button>
+                            <button 
+                                onClick={() => onStartGame(GAME_MODES.HARD)}
+                                className="mode-button bg-red-500 hover:bg-red-600"
+                            >
+                                Hard
+                            </button>
+                            <button 
+                                onClick={() => onStartGame('CUSTOM')}
+                                className="mode-button bg-purple-500 hover:bg-purple-600"
+                            >
+                                Custom
+                            </button>
+                            <button 
+                                onClick={() => setShowHistory(true)}
+                                className="mode-button bg-blue-500 hover:bg-blue-600"
+                            >
+                                History
+                            </button>
+                            <button 
+                                onClick={() => setShowRecords(true)}
+                                className="mode-button bg-indigo-500 hover:bg-indigo-600"
+                            >
+                                Records
+                            </button>
+                        </div>
+                    </div>
+                    {showHistory && <HistoryModal onClose={() => setShowHistory(false)} playerName={playerName} />}
+                    {showRecords && <RecordsModal onClose={() => setShowRecords(false)} playerName={playerName} />}
+                </div>
+            );
+        }
+
+        function GameSummaryModal({ isOpen, onClose, gameWon, stats }) {
+            if (!isOpen) return null;
+
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                        <h2 className="modal-title">
+                            {gameWon ? '🎉 Congratulations!' : '💣 Game Over!'}
+                        </h2>
+                        <div className="modal-stats">
+                            <p>Time: {stats.duration} seconds</p>
+                            <p>Mines: {stats.mines}</p>
+                            <p>Cells revealed: {stats.revealed}</p>
+                            <p>Flags placed: {stats.flags}</p>
+                        </div>
+                        <div>
+                            <button className="modal-button" onClick={() => onClose('newGame')}>
+                                New Game
+                            </button>
+                            <button className="modal-button" onClick={() => onClose('menu')}>
+                                Menu
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function Minesweeper() {
+            const [gameMode, setGameMode] = useState(null);
+            const [board, setBoard] = useState([]);
+            const [gameOver, setGameOver] = useState(false);
+            const [gameWon, setGameWon] = useState(false);
+            const [mines, setMines] = useState([]);
+            const [revealed, setRevealed] = useState(new Set());
+            const [flagged, setFlagged] = useState(new Set());
+            const [startTime, setStartTime] = useState(null);
+            const [endTime, setEndTime] = useState(null);
+            const [currentTime, setCurrentTime] = useState(0);
+            const [darkMode, setDarkMode] = useState(false);
+            const [showModal, setShowModal] = useState(false);
+            const [playerName, setPlayerName] = useState(null);
+            const [showPlayerModal, setShowPlayerModal] = useState(true);
+            const [showRecords, setShowRecords] = useState(false);
+            const [longPressTimer, setLongPressTimer] = useState(null);
+            const [isFlagging, setIsFlagging] = useState(false);
+
+            useEffect(() => {
+                document.body.classList.toggle('dark-mode', darkMode);
+                document.body.classList.toggle('light-mode', !darkMode);
+            }, [darkMode]);
+
+            useEffect(() => {
+                let timer;
+                if (startTime && !endTime) {
+                    timer = setInterval(() => {
+                        setCurrentTime(Math.floor((new Date() - startTime) / 1000));
+                    }, 1000);
+                }
+                return () => clearInterval(timer);
+            }, [startTime, endTime]);
+
+            const saveGameToHistory = (won) => {
+                const history = JSON.parse(localStorage.getItem('minesweeperHistory') || '[]');
+                const gameData = {
+                    playerName,
+                    mode: gameMode === 'CUSTOM' ? 'Custom' : 
+                          Object.keys(GAME_MODES).find(key => GAME_MODES[key] === gameMode),
+                    won,
+                    duration: getGameDuration(),
+                    date: new Date().toISOString()
+                };
+                history.unshift(gameData);
+                localStorage.setItem('minesweeperHistory', JSON.stringify(history.slice(0, 10))); // Keep only last 10 games
+            };
+
+            const handleChangeProfile = () => {
+                setShowPlayerModal(true);
+            };
+
+            const handlePlayerSelect = (name) => {
+                setPlayerName(name);
+                setShowPlayerModal(false);
+            };
+
+            useEffect(() => {
+                if (gameOver || gameWon) {
+                    saveGameToHistory(gameWon);
+                    setShowModal(true);
+                    setEndTime(new Date());
+                }
+            }, [gameOver, gameWon]);
+
+            const getGameDuration = () => {
+                if (!startTime) return '0:00';
+                const totalSeconds = endTime 
+                    ? Math.floor((endTime - startTime) / 1000)
+                    : Math.floor((new Date() - startTime) / 1000);
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = totalSeconds % 60;
+                return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            };
+
+            const initializeBoard = () => {
+                const size = gameMode.size;
+                const newBoard = Array(size).fill().map(() => Array(size).fill(0));
+                const newMines = [];
+                const numMines = gameMode.mines;
+
+                setStartTime(new Date());
+                setEndTime(null);
+                setCurrentTime(0);
+                setGameOver(false);
+                setGameWon(false);
+                setRevealed(new Set());
+                setFlagged(new Set());
+
+                // Place mines randomly
+                while (newMines.length < numMines) {
+                    const x = Math.floor(Math.random() * size);
+                    const y = Math.floor(Math.random() * size);
+                    if (!newMines.some(mine => mine.x === x && mine.y === y)) {
+                        newMines.push({ x, y });
+                        newBoard[y][x] = -1;
+                    }
+                }
+
+                // Calculate numbers
+                for (let y = 0; y < size; y++) {
+                    for (let x = 0; x < size; x++) {
+                        if (newBoard[y][x] !== -1) {
+                            let count = 0;
+                            for (let dy = -1; dy <= 1; dy++) {
+                                for (let dx = -1; dx <= 1; dx++) {
+                                    const newX = x + dx;
+                                    const newY = y + dy;
+                                    if (newX >= 0 && newX < size && newY >= 0 && newY < size) {
+                                        if (newBoard[newY][newX] === -1) count++;
+                                    }
+                                }
+                            }
+                            newBoard[y][x] = count;
+                        }
+                    }
+                }
+
+                setBoard(newBoard);
+                setMines(newMines);
+            };
+
+            useEffect(() => {
+                if (gameMode && gameMode !== 'CUSTOM') {
+                    initializeBoard();
+                }
+            }, [gameMode]);
+
+            const revealAdjacentCells = (x, y, newRevealed) => {
+                const size = gameMode.size;
+                for (let dy = -1; dy <= 1; dy++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        const newX = x + dx;
+                        const newY = y + dy;
+                        
+                        if (newX < 0 || newX >= size || newY < 0 || newY >= size) continue;
+                        if (newRevealed.has(`${newX},${newY}`)) continue;
+                        if (flagged.has(`${newX},${newY}`)) continue;
+                        
+                        newRevealed.add(`${newX},${newY}`);
+                        
+                        if (board[newY][newX] === 0) {
+                            revealAdjacentCells(newX, newY, newRevealed);
+                        }
+                    }
+                }
+            };
+
+            const handleCellClick = (x, y, event) => {
+                event.preventDefault();
+                
+                if (event.button === 2) {
+                    if (gameOver || revealed.has(`${x},${y}`)) return;
+                    
+                    const newFlagged = new Set(flagged);
+                    if (newFlagged.has(`${x},${y}`)) {
+                        newFlagged.delete(`${x},${y}`);
+                    } else {
+                        newFlagged.add(`${x},${y}`);
+                    }
+                    setFlagged(newFlagged);
+                    return;
+                }
+
+                if (gameOver || revealed.has(`${x},${y}`) || flagged.has(`${x},${y}`)) return;
+                
+                const newRevealed = new Set(revealed);
+                newRevealed.add(`${x},${y}`);
+                
+                if (board[y][x] === 0) {
+                    revealAdjacentCells(x, y, newRevealed);
+                }
+                
+                setRevealed(newRevealed);
+
+                if (board[y][x] === -1) {
+                    setGameOver(true);
+                    return;
+                }
+
+                const totalCells = gameMode.size * gameMode.size;
+                const totalMines = mines.length;
+                if (newRevealed.size === totalCells - totalMines) {
+                    setGameWon(true);
+                }
+            };
+
+            const handleTouchStart = (x, y, e) => {
+                e.preventDefault();
+                const timer = setTimeout(() => {
+                    setIsFlagging(true);
+                }, 500);
+                setLongPressTimer(timer);
+            };
+
+            const handleTouchEnd = (x, y, e) => {
+                e.preventDefault();
+                clearTimeout(longPressTimer);
+                if (isFlagging) {
+                    // Handle flagging (right click behavior)
+                    handleCellClick(x, y, { preventDefault: () => {}, button: 2 });
+                    setIsFlagging(false);
+                } else {
+                    // Handle revealing (left click behavior)
+                    handleCellClick(x, y, { preventDefault: () => {}, button: 0 });
+                }
+            };
+
+            const handleTouchMove = (e) => {
+                e.preventDefault();
+                clearTimeout(longPressTimer);
+                setIsFlagging(false);
+            };
+
+            const handleModalClose = (action) => {
+                setShowModal(false);
+                if (action === 'newGame') {
+                    initializeBoard();
+                } else if (action === 'menu') {
+                    setGameMode(null);
+                }
+            };
+
+            if (showPlayerModal) {
+                return <PlayerModal onSelectPlayer={handlePlayerSelect} />;
+            }
+
+            if (!gameMode) {
+                return (
+                    <Menu 
+                        onStartGame={setGameMode} 
+                        playerName={playerName} 
+                        onChangeProfile={handleChangeProfile}
+                    />
+                );
+            }
+
+            if (gameMode === 'CUSTOM') {
+                return <CustomMode onStartGame={setGameMode} />;
+            }
+
+            return (
+                <>
+                    <button
+                        onClick={() => setDarkMode(!darkMode)}
+                        className="theme-toggle-game"
+                    >
+                        {darkMode ? '☀️ Light' : '🌙 Dark'}
+                    </button>
+                    <div className="game-container">
+                        <div className="mb-4">
+                            <div className="game-header">
+                                <div className="game-title-section">
+                                    <h1 className="text-2xl font-bold">Minesweeper</h1>
+                                    <button 
+                                        onClick={() => setShowRecords(true)}
+                                        className="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600"
+                                    >
+                                        Records
+                                    </button>
+                                </div>
+                                <ProfileDisplay playerName={playerName} inGame={true} onChangeProfile={handleChangeProfile} />
+                                <div className="game-controls">
+                                    <button 
+                                        onClick={() => setGameMode(null)}
+                                        className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+                                    >
+                                        Menu
+                                    </button>
+                                    <button 
+                                        onClick={initializeBoard}
+                                        className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                                    >
+                                        New Game
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="game-stats">
+                                <p>Mines: {mines.length}</p>
+                                <p>Flags: {flagged.size}</p>
+                                <p>Time: {getGameDuration()}</p>
+                            </div>
+                        </div>
+
+                        {showRecords && <RecordsModal onClose={() => setShowRecords(false)} playerName={playerName} />}
+                        <GameSummaryModal
+                            isOpen={showModal}
+                            onClose={handleModalClose}
+                            gameWon={gameWon}
+                            stats={{
+                                duration: getGameDuration(),
+                                mines: mines.length,
+                                revealed: revealed.size,
+                                flags: flagged.size
+                            }}
+                        />
+
+                        <div className="grid" style={{ gridTemplateColumns: `repeat(${gameMode.size}, var(--cell-size))` }}>
+                            {board.map((row, y) => 
+                                row.map((cell, x) => (
+                                    <div
+                                        key={`${x}-${y}`}
+                                        className={`cell ${revealed.has(`${x},${y}`) ? 'revealed' : ''} ${
+                                            gameOver && cell === -1 ? 'mine' : ''
+                                        } ${flagged.has(`${x},${y}`) ? 'flagged' : ''}`}
+                                        onClick={(e) => handleCellClick(x, y, e)}
+                                        onContextMenu={(e) => handleCellClick(x, y, e)}
+                                        onTouchStart={(e) => handleTouchStart(x, y, e)}
+                                        onTouchEnd={(e) => handleTouchEnd(x, y, e)}
+                                        onTouchMove={handleTouchMove}
+                                    >
+                                        {revealed.has(`${x},${y}`) && cell > 0 && cell}
+                                        {gameOver && cell === -1 && '💣'}
+                                        {flagged.has(`${x},${y}`) && '🚩'}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </>
+            );
+        }
+
+        ReactDOM.render(<Minesweeper />, document.getElementById('root'));
+    </script>
+</body>
+</html> 
